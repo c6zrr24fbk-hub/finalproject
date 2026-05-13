@@ -14,11 +14,13 @@ func main() {
 	}
 
 	if err := db.Init(dbFile); err != nil {
-		log.Fatal("Ошибка инициализации БД:", err)
+		log.Fatalf("Ошибка инициализации БД: %v", err)
 	}
+	defer db.Close()
 
 	webDir := "./web"
 	if err := server.StartServer(webDir); err != nil {
-		log.Fatal(err)
+		log.Printf("Ошибка запуска сервера: %v", err)
+		os.Exit(1)
 	}
 }

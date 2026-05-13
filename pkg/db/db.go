@@ -37,3 +37,9 @@ func Init(dbFile string) error {
 	log.Println("База данных инициализирована")
 	return nil
 }
+
+func Close() {
+	if DB != nil {
+		DB.Close()
+	}
+}

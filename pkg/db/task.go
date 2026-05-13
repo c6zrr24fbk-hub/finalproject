@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+const DateFormat = "20060102"
+const DefaultLimit = 50
+
 type Task struct {
 	ID      string `json:"id"`
 	Date    string `json:"date"`
@@ -27,44 +30,11 @@ func AddTask(task *Task) (int64, error) {
 }
 
 func GetTasks(limit int, search string) ([]Task, error) {
-	var rows *sql.Rows
-	var err error
-
-	if search != "" {
-		if t, errParse := time.Parse("02.01.2006", search); errParse == nil {
-			dateStr := t.Format("20060102")
-			if limit > 0 {
-				rows, err = DB.Query(
-					"SELECT id, date, title, comment, repeat FROM scheduler WHERE date = ? ORDER BY date LIMIT ?",
-					dateStr, limit)
-			} else {
-				rows, err = DB.Query(
-					"SELECT id, date, title, comment, repeat FROM scheduler WHERE date = ? ORDER BY date",
-					dateStr)
-			}
-		} else {
-			like := "%" + search + "%"
-			if limit > 0 {
-				rows, err = DB.Query(
-					"SELECT id, date, title, comment, repeat FROM scheduler WHERE title LIKE ? OR comment LIKE ? ORDER BY date LIMIT ?",
-					like, like, limit)
-			} else {
-				rows, err = DB.Query(
-					"SELECT id, date, title, comment, repeat FROM scheduler WHERE title LIKE ? OR comment LIKE ? ORDER BY date",
-					like, like)
-			}
-		}
-	} else {
-		if limit > 0 {
-			rows, err = DB.Query(
-				"SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT ?",
-				limit)
-		} else {
-			rows, err = DB.Query(
-				"SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date")
-		}
+	if limit <= 0 {
+		limit = DefaultLimit
 	}
-
+	query, args := buildQuery(limit, search)
+	rows, err := DB.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -83,11 +53,27 @@ func GetTasks(limit int, search string) ([]Task, error) {
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-
 	if tasks == nil {
 		tasks = []Task{}
 	}
 	return tasks, nil
+}
+
+func buildQuery(limit int, search string) (string, []interface{}) {
+	if search == "" {
+		return "SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT ?",
+			[]interface{}{limit}
+	}
+
+	if t, err := time.Parse("02.01.2006", search); err == nil {
+		dateStr := t.Format(DateFormat)
+		return "SELECT id, date, title, comment, repeat FROM scheduler WHERE date = ? ORDER BY date LIMIT ?",
+			[]interface{}{dateStr, limit}
+	}
+
+	like := "%" + search + "%"
+	return "SELECT id, date, title, comment, repeat FROM scheduler WHERE title LIKE ? OR comment LIKE ? ORDER BY date LIMIT ?",
+		[]interface{}{like, like, limit}
 }
 
 func GetTask(id string) (*Task, error) {
